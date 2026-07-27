@@ -1,0 +1,20 @@
+services:
+  news:
+    image: news-digests:local
+    build: .
+    restart: unless-stopped
+    init: true
+    read_only: true
+    ports:
+      - "${NEWS_BIND_ADDRESS:-0.0.0.0}:${NEWS_PORT:-3000}:3000"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777
+    volumes:
+      - news-data:/data
+
+volumes:
+  news-data:

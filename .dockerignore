@@ -1,0 +1,10 @@
+node_modules
+dist
+build
+.svelte-kit
+data
+__pycache__
+*.py[cod]
+.git
+.DS_Store
+*.log

@@ -1,0 +1,30 @@
+{
+  "name": "news",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "prepare": "svelte-kit sync",
+    "preview": "vite preview",
+    "start": "node build",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-node": "^5.5.7",
+    "@sveltejs/kit": "^2.70.1",
+    "@sveltejs/vite-plugin-svelte": "^7.0.0",
+    "@types/node": "^22.20.1",
+    "svelte": "^5.55.1",
+    "svelte-check": "^4.7.3",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.4",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "marked": "^18.0.1"
+  }
+}

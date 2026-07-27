@@ -1,0 +1,94 @@
+{
+  "world": [
+    {
+      "name": "rt_russian",
+      "group": "russian"
+    },
+    {
+      "name": "msk_live",
+      "group": "russian"
+    },
+    {
+      "name": "rian_ru",
+      "group": "russian"
+    },
+    {
+      "name": "RTenfrancais",
+      "group": "russian"
+    },
+    {
+      "name": "voynareal",
+      "group": "ukrainian"
+    },
+    {
+      "name": "guardian",
+      "group": "european"
+    },
+    {
+      "name": "bbcrussian",
+      "group": "european"
+    },
+    {
+      "name": "France24_fr",
+      "group": "european",
+      "note": "France; official France 24; French-language"
+    },
+    {
+      "name": "dwglavnoe",
+      "group": "european",
+      "note": "Germany; official Deutsche Welle Russian service; Russian-language"
+    },
+    {
+      "name": "reutersworldchannel",
+      "group": "american",
+      "note": "unofficial Reuters relay"
+    },
+    {
+      "name": "currenttime",
+      "group": "american",
+      "note": "US-funded Russian-language media; RFE/RL with VOA"
+    },
+    {
+      "name": "radiosvoboda",
+      "group": "american",
+      "note": "US Congress-funded RFE/RL; same editorial family as currenttime"
+    },
+    {
+      "name": "newsmax",
+      "group": "american",
+      "note": "official US conservative media"
+    }
+  ],
+  "crypto": [
+    "CryptoWorldNews",
+    "RBCCrypto",
+    "DecryptNews",
+    "forklog",
+    "wublockchainenglish",
+    "BitcoinBullets",
+    "binancekillers",
+    "CryptoCapoTG",
+    "altsignals",
+    "cryptoinnercircle",
+    "crypto_miami",
+    "CoinMarketCapAnnouncements"
+  ],
+  "invest": [
+    "investfuture",
+    "investingcorp",
+    "thewallstreetpro",
+    "bitkogan",
+    "selfinvestor",
+    "lemonfortea",
+    "if_bonds",
+    "if_stocks",
+    "usamarke1",
+    "alfa_investments",
+    "omyinvestments",
+    "particular_trader",
+    "AK47pfl",
+    "MarketDumki",
+    "cbonds",
+    "smfanton"
+  ]
+}

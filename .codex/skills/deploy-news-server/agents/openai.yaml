@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deploy News Server"
+  short_description: "Deploy this app to a Docker server"
+  default_prompt: "Use $deploy-news-server to deploy this project to my server."
