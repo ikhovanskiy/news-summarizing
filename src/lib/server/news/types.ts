@@ -6,12 +6,21 @@ export type CollectionJobStatus =
   | 'failed'
   | 'cancelled'
 
+export interface CollectionProgress {
+  currentChannel: string
+  currentDate: string
+  channelsCompleted: number
+  channelsTotal: number
+  messages: number
+}
+
 export interface CollectionRunnerInput {
   category: Category
   dateFrom: string
   dateTo: string
   rawDir: string
   signal: AbortSignal
+  onProgress?: (progress: CollectionProgress) => void
 }
 
 export interface CollectionRunnerResult {
@@ -38,6 +47,7 @@ export interface CollectionJob {
   error?: string | null
   result?: Buffer
   abortController?: AbortController
+  progress?: CollectionProgress | null
 }
 
 export interface PublicCollectionJob {
@@ -51,6 +61,7 @@ export interface PublicCollectionJob {
   messages: number | null
   summary: string | null
   error: string | null
+  progress: CollectionProgress | null
 }
 
 export interface StartCollectionInput {

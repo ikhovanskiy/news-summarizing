@@ -22,6 +22,8 @@ process or environment variables are needed.
 - `PUT /api/digests/:category` publishes a Markdown digest.
 - `POST /api/collections/:category` cancels any running collector and starts a
   new `collect.py` job on the server.
+- `GET /api/collection-jobs/current` returns the running job and its live
+  per-channel progress for the frontend progress bar.
 - `GET /api/collection-jobs/:id` returns collection status.
 - `GET /api/collection-jobs/:id/result` returns completed raw Markdown.
 - `GET /healthz` is a health check.
@@ -74,6 +76,19 @@ The Docker deployment listens on port `3001`, stores digests in the persistent
 `news-data` volume, and runs collection in the `Europe/Moscow` timezone.
 Override the public bind address or port with `NEWS_BIND_ADDRESS` and
 `NEWS_PORT`.
+
+If the server cannot reach Telegram directly, create
+`~/.news-deploy/config.env` on the server before deployment:
+
+```bash
+NEWS_HTTPS_PROXY=http://proxy.example:3128
+NEWS_HTTP_PROXY=http://proxy.example:3128
+```
+
+The deployment reuses those proxy settings without copying them into the
+repository or release archive. A collection that receives zero messages from
+every configured channel fails with a connectivity error instead of publishing
+an empty result.
 
 To deploy over SSH with the project-local Codex skill, invoke
 `$deploy-news-server`. It asks for a server destination before connecting and

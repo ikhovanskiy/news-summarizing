@@ -27,6 +27,7 @@ CLI:
 """
 
 import argparse
+import concurrent.futures
 import datetime as dt
 import html
 import json
@@ -44,14 +45,25 @@ CHANNELS_FILE = NEWS_DIR / "channels.json"
 MCP_CONFIG = HOME / "home" / ".mcp.json"
 OUT_DIR = Path(os.environ.get("NEWS_RAW_DIR", "/tmp/news-raw"))
 
+
+def _env_int(name, default, minimum, maximum):
+    try:
+        value = int(os.environ.get(name, default))
+    except (TypeError, ValueError):
+        value = default
+    return max(minimum, min(maximum, value))
+
+
 USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
-HTTP_TIMEOUT = 25          # сек на один запрос telegram.me/s/
-HTTP_RETRIES = 3           # ретраи на сетевой таймаут (if_bonds иногда флапает)
-PAGE_RETRIES = 3           # ретраи на страницу пагинации, если Telegram отдал кривой HTML
-BEFORE_GAP_RETRIES = 5     # обход дыр в telegram.me/s/?before=<id>, где отдельный id даёт пустую страницу
+HTTP_TIMEOUT = _env_int("NEWS_HTTP_TIMEOUT", 10, 2, 60)
+HTTP_RETRIES = _env_int("NEWS_HTTP_RETRIES", 2, 1, 5)
+PAGE_RETRIES = _env_int("NEWS_PAGE_RETRIES", 2, 1, 5)
+BEFORE_GAP_RETRIES = _env_int("NEWS_BEFORE_GAP_RETRIES", 2, 0, 10)
 MAX_PAGES = 12             # ограничение пагинации назад на канал
 MAX_TEXT_LEN = 2000        # обрезка длинных сообщений
 MTPROTO_TIMEOUT = 8        # сек, короткий таймаут попытки MTProto
+SCRAPE_WORKERS = _env_int("NEWS_SCRAPE_WORKERS", 6, 1, 16)
+SCRAPE_CHANNEL_TIMEOUT = _env_int("NEWS_SCRAPE_CHANNEL_TIMEOUT", 90, 15, 600)
 WORLD_SOURCE_GROUPS = {"russian", "ukrainian", "european", "american"}
 
 
@@ -277,12 +289,24 @@ def collect_scrape_channel(ch, target_date):
     collected = []  # (datetime_iso, time_str, text)
     before = None
     saw_older = False
+    deadline = time.monotonic() + SCRAPE_CHANNEL_TIMEOUT
 
     for _ in range(MAX_PAGES):
+        if time.monotonic() >= deadline:
+            print(
+                f"WARNING: {ch}: channel deadline reached after {SCRAPE_CHANNEL_TIMEOUT}s",
+                file=sys.stderr,
+            )
+            break
+
         rows = []
         last_err = None
         url = f"https://telegram.me/s/{ch}"
         for gap in range(BEFORE_GAP_RETRIES + 1):
+            if time.monotonic() >= deadline:
+                last_err = f"channel deadline reached after {SCRAPE_CHANNEL_TIMEOUT}s"
+                break
+
             page_before = before - gap if before is not None else None
             if page_before is not None and page_before <= 0:
                 break
@@ -292,6 +316,9 @@ def collect_scrape_channel(ch, target_date):
                 url += f"?before={page_before}"
 
             for attempt in range(PAGE_RETRIES):
+                if time.monotonic() >= deadline:
+                    last_err = f"channel deadline reached after {SCRAPE_CHANNEL_TIMEOUT}s"
+                    break
                 try:
                     page = _http_get(url)
                     rows = _parse_page(page)
@@ -374,19 +401,71 @@ def render_category(category, channels, by_channel, source_map, target_date, met
 
 
 def collect_category(category, channels, target_date, mtproto_data):
-    """Объединяет MTProto-результаты (если есть) и скрапер для каждого канала."""
+    """Объединяет MTProto и параллельный скрапер с детерминированным выводом."""
     by_channel = {}
     source_map = {}
+    scrape_channels = []
+
     for ch in channels:
         msgs = None
         if mtproto_data and ch in mtproto_data:
             msgs = mtproto_data[ch]
             source_map[ch] = "mtproto"
         if not msgs:
-            msgs = collect_scrape_channel(ch, target_date)
             source_map[ch] = "scrape"
-        by_channel[ch] = msgs
-    return by_channel, source_map
+            scrape_channels.append(ch)
+        else:
+            by_channel[ch] = msgs
+
+    completed = 0
+    message_total = 0
+    total_channels = len(channels)
+
+    def report_progress(channel):
+        print(
+            f"progress category={category} date={target_date.isoformat()} "
+            f"channel={channel} channels_completed={completed} "
+            f"channels_total={total_channels} messages={message_total}",
+            flush=True,
+        )
+
+    for channel in channels:
+        if channel in by_channel:
+            completed += 1
+            message_total += len(by_channel[channel])
+            report_progress(channel)
+
+    if scrape_channels:
+        worker_count = min(SCRAPE_WORKERS, len(scrape_channels))
+        with concurrent.futures.ThreadPoolExecutor(max_workers=worker_count) as executor:
+            futures = {
+                executor.submit(collect_scrape_channel, channel, target_date): channel
+                for channel in scrape_channels
+            }
+            for future in concurrent.futures.as_completed(futures):
+                channel = futures[future]
+                try:
+                    messages = future.result()
+                except Exception as error:
+                    print(
+                        f"WARNING: {channel}: collection failed: {error}",
+                        file=sys.stderr,
+                    )
+                    messages = []
+                by_channel[channel] = messages
+                completed += 1
+                message_total += len(messages)
+                report_progress(channel)
+
+    ordered_messages = {
+        channel: by_channel.get(channel, [])
+        for channel in channels
+    }
+    ordered_sources = {
+        channel: source_map[channel]
+        for channel in channels
+    }
+    return ordered_messages, ordered_sources
 
 
 def iter_dates(date_from, date_to):
@@ -523,6 +602,13 @@ def main():
             f"category={cat} channels={len(channels)} messages={total} "
             f"date_from={date_from.isoformat()} date_to={date_to.isoformat()} -> {out_path}"
         )
+        if total == 0:
+            print(
+                "ERROR: collector received zero messages from every channel; "
+                "check Telegram reachability or configure NEWS_HTTPS_PROXY",
+                file=sys.stderr,
+            )
+            return 1
 
     return 0
 

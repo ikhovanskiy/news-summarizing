@@ -16,6 +16,7 @@ import type {
 export interface CollectionService {
   readonly jobs: Map<string, CollectionJob>
   get(id: string): CollectionJob | undefined
+  current(): CollectionJob | undefined
   start(input: StartCollectionInput): StartCollectionResult
 }
 
@@ -49,6 +50,7 @@ export function publicCollectionJob(job: CollectionJob): PublicCollectionJob {
     messages: job.messages ?? null,
     summary: job.summary || null,
     error: job.error || null,
+    progress: job.progress || null,
   }
 }
 
@@ -87,6 +89,11 @@ export async function executeCollectionJob(
       dateTo: job.dateTo,
       rawDir: job.rawDir,
       signal,
+      onProgress(progress) {
+        if (job.status !== 'running') return
+        job.progress = progress
+        job.messages = progress.messages
+      },
     })
     if (job.status === 'cancelled' || signal.aborted) return
 
@@ -134,6 +141,13 @@ export function createCollectionService(
     jobs,
     get(id) {
       return jobs.get(id)
+    },
+    current() {
+      return [...jobs.values()]
+        .filter((job) => job.status === 'running')
+        .sort((left, right) =>
+          right.createdAt.localeCompare(left.createdAt),
+        )[0]
     },
     start(input) {
       const replacedJobIds: string[] = []

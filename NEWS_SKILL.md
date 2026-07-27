@@ -27,6 +27,7 @@ Valid categories are `world`, `crypto`, and `invest`.
 |---|---|
 | Read the latest digest | `GET <SERVER_URL>/api/digests/<CATEGORY>` |
 | Start collection | `POST <SERVER_URL>/api/collections/<CATEGORY>` |
+| Read the running job | `GET <SERVER_URL>/api/collection-jobs/current` |
 | Read job status | `GET <SERVER_URL>/api/collection-jobs/<JOB_ID>` |
 | Download raw result | `GET <SERVER_URL>/api/collection-jobs/<JOB_ID>/result` |
 | Publish a digest | `PUT <SERVER_URL>/api/digests/<CATEGORY>` |
@@ -40,7 +41,7 @@ Markdown bodies.
 
 - Digest `GET`: expect `200` with `text/markdown`. A `404` with `Digest not found` is a valid first run.
 - Collection `POST`: send `Content-Type: application/json` and body `{"dateFrom":"YYYY-MM-DD","dateTo":"YYYY-MM-DD"}`. Expect `202` and a JSON job containing `id` and `replacedJobIds`. The server cancels any running collection before starting this job.
-- Job `GET`: expect JSON with `status` equal to `running`, `completed`, `failed`, or `cancelled`; completed jobs can include `messages` and `summary`.
+- Job `GET`: expect JSON with `status` equal to `running`, `completed`, `failed`, or `cancelled`. Running jobs include live `progress` with `channelsCompleted`, `channelsTotal`, `currentChannel`, and the message count so far; completed jobs can include `messages` and `summary`.
 - Result `GET`: expect `200` with the exact raw Markdown only after the job is complete.
 - Digest `PUT`: send the finished Markdown as the request body with `Content-Type: text/markdown; charset=utf-8`. Expect `200` JSON containing `category`, `bytes`, and `updatedAt`.
 
@@ -73,6 +74,10 @@ curl --silent --show-error --fail-with-body \
 # Poll a job; replace JOB_ID with the id returned by the previous request
 curl --silent --show-error --fail-with-body \
   "$SERVER_URL/api/collection-jobs/JOB_ID"
+
+# Read whichever collection is currently running
+curl --silent --show-error --fail-with-body \
+  "$SERVER_URL/api/collection-jobs/current"
 
 # Download the completed raw result
 curl --silent --show-error --fail-with-body \

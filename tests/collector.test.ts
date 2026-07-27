@@ -35,11 +35,13 @@ describe('collector process runner', () => {
         'target = Path(os.environ["NEWS_RAW_DIR"]) / f"{args.category}.md"',
         'body = f"# Fake {args.category}: {args.date_from} — {args.date_to}; source={args.source}\\n"',
         'target.write_text(body, encoding="utf-8")',
+        'print(f"progress category={args.category} date={args.date_from} channel=fake_channel channels_completed=1 channels_total=1 messages=7", flush=True)',
         'print(f"category={args.category} channels=1 messages=7 date_from={args.date_from} date_to={args.date_to} source={args.source}")',
         '',
       ].join('\n'),
     )
 
+    const progress: unknown[] = []
     const result = await runCollectorProcess(
       {
         category: 'crypto',
@@ -47,6 +49,9 @@ describe('collector process runner', () => {
         dateTo: '2026-07-27',
         rawDir,
         signal: new AbortController().signal,
+        onProgress(update) {
+          progress.push(update)
+        },
       },
       {
         collectorPath,
@@ -65,5 +70,14 @@ describe('collector process runner', () => {
     )
     expect(String(result.stdout)).toContain('source=scrape')
     expect(result.stderr).toBe('')
+    expect(progress).toEqual([
+      {
+        currentChannel: 'fake_channel',
+        currentDate: '2026-07-26',
+        channelsCompleted: 1,
+        channelsTotal: 1,
+        messages: 7,
+      },
+    ])
   })
 })

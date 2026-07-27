@@ -93,6 +93,12 @@ fi
 
 cd "$release_dir"
 printf 'NEWS_PORT=%s\n' "$http_port" > .env
+proxy_config="$HOME/.news-deploy/config.env"
+if [[ -f "$proxy_config" ]]; then
+  grep -E '^(NEWS_HTTP_PROXY|NEWS_HTTPS_PROXY|NEWS_NO_PROXY)=' \
+    "$proxy_config" >> .env || true
+fi
+chmod 600 .env
 "${docker_command[@]}" compose -p news up -d --build --remove-orphans
 
 container_id=$("${docker_command[@]}" compose -p news ps -q news)

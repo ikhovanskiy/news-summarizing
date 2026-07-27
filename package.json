@@ -10,7 +10,7 @@
     "prepare": "svelte-kit sync",
     "preview": "vite preview",
     "start": "node build",
-    "test": "vitest run",
+    "test": "python3 -m unittest discover -s tests -p 'test_*.py' && vitest run",
     "test:watch": "vitest"
   },
   "devDependencies": {

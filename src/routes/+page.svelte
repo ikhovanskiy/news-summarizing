@@ -10,6 +10,23 @@
 
   type Category = (typeof tabs)[number]['id']
 
+  interface CollectionProgress {
+    currentChannel: string
+    currentDate: string
+    channelsCompleted: number
+    channelsTotal: number
+    messages: number
+  }
+
+  interface CollectionJob {
+    id: string
+    category: Category
+    dateFrom: string
+    dateTo: string
+    status: 'running' | 'completed' | 'failed' | 'cancelled'
+    progress: CollectionProgress | null
+  }
+
   const htmlEntities: Record<string, string> = {
     '&': '&amp;',
     '<': '&lt;',
@@ -30,12 +47,32 @@
   let loading = $state(true)
   let error = $state<string | null>(null)
   let requestController: AbortController | undefined
+  let collectionJob = $state<CollectionJob | null>(null)
+  let collectionController: AbortController | undefined
+  let collectionTimer: ReturnType<typeof setTimeout> | undefined
+  let collectionPolling = false
 
   const renderedContent = $derived(
     marked.parse(content, {
       async: false,
       renderer,
     }),
+  )
+
+  const collectionPercent = $derived.by(() => {
+    const progress = collectionJob?.progress
+    if (!progress || progress.channelsTotal < 1) return null
+    return Math.min(
+      100,
+      Math.round(
+        (progress.channelsCompleted / progress.channelsTotal) * 100,
+      ),
+    )
+  })
+
+  const collectionLabel = $derived(
+    tabs.find((tab) => tab.id === collectionJob?.category)?.label ??
+      'News',
   )
 
   async function loadNews(category: Category): Promise<void> {
@@ -83,10 +120,46 @@
     void loadNews(category)
   }
 
-  onMount(() => {
-    void loadNews(activeTab)
+  async function pollCollection(): Promise<void> {
+    collectionController?.abort()
+    const controller = new AbortController()
+    collectionController = controller
 
-    return () => requestController?.abort()
+    try {
+      const response = await fetch('/api/collection-jobs/current', {
+        cache: 'no-store',
+        signal: controller.signal,
+      })
+      if (response.status === 404) {
+        collectionJob = null
+      } else if (response.ok) {
+        collectionJob = (await response.json()) as CollectionJob
+      }
+    } catch {
+      // Digest loading remains available if this optional status request fails.
+    } finally {
+      if (collectionController === controller) {
+        collectionController = undefined
+      }
+      if (collectionPolling) {
+        collectionTimer = setTimeout(() => {
+          void pollCollection()
+        }, 1500)
+      }
+    }
+  }
+
+  onMount(() => {
+    collectionPolling = true
+    void loadNews(activeTab)
+    void pollCollection()
+
+    return () => {
+      collectionPolling = false
+      requestController?.abort()
+      collectionController?.abort()
+      if (collectionTimer) clearTimeout(collectionTimer)
+    }
   })
 </script>
 
@@ -103,6 +176,48 @@
       </button>
     {/each}
   </nav>
+
+  {#if collectionJob?.status === 'running'}
+    <section class="collection-status" aria-live="polite">
+      <div class="collection-status__header">
+        <div>
+          <span class="collection-status__eyebrow">Live collection</span>
+          <strong>Collecting {collectionLabel}</strong>
+        </div>
+        <span class="collection-status__percent">
+          {collectionPercent === null ? 'Starting…' : `${collectionPercent}%`}
+        </span>
+      </div>
+
+      <div
+        class:indeterminate={collectionPercent === null}
+        class="progress-track"
+        role="progressbar"
+        aria-label={`Collecting ${collectionLabel}`}
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow={collectionPercent ?? undefined}
+      >
+        <span
+          class="progress-fill"
+          style={`width: ${collectionPercent ?? 28}%`}
+        ></span>
+      </div>
+
+      <div class="collection-status__details">
+        {#if collectionJob.progress}
+          <span>
+            {collectionJob.progress.channelsCompleted} of
+            {collectionJob.progress.channelsTotal} sources
+          </span>
+          <span>{collectionJob.progress.messages} messages found</span>
+          <span>@{collectionJob.progress.currentChannel}</span>
+        {:else}
+          <span>Preparing source collection…</span>
+        {/if}
+      </div>
+    </section>
+  {/if}
 
   {#if loading}
     <div class="empty">Loading…</div>
@@ -159,6 +274,85 @@
     background: #007bff;
     color: white;
     border-color: #007bff;
+  }
+
+  .collection-status {
+    margin: 0 0 24px;
+    padding: 16px 18px;
+    border: 1px solid #cfe2ff;
+    border-radius: 10px;
+    background: #f4f8ff;
+    box-shadow: 0 8px 24px rgb(0 86 179 / 8%);
+  }
+
+  .collection-status__header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 12px;
+    color: #17365d;
+  }
+
+  .collection-status__header strong {
+    display: block;
+    font-size: 16px;
+  }
+
+  .collection-status__eyebrow {
+    display: block;
+    margin-bottom: 2px;
+    color: #5d7696;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .collection-status__percent {
+    color: #0056b3;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+  }
+
+  .progress-track {
+    position: relative;
+    height: 9px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #dce8f8;
+  }
+
+  .progress-fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #007bff, #42a5ff);
+    transition: width 300ms ease;
+  }
+
+  .progress-track.indeterminate .progress-fill {
+    animation: progress-slide 1.2s ease-in-out infinite;
+  }
+
+  .collection-status__details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    margin-top: 10px;
+    color: #5d6f84;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  @keyframes progress-slide {
+    from {
+      transform: translateX(-120%);
+    }
+    to {
+      transform: translateX(360%);
+    }
   }
 
   .empty {
@@ -270,5 +464,37 @@
   :global(.markdown-content th) {
     background: #f4f4f4;
     font-weight: 600;
+  }
+
+  @media (max-width: 560px) {
+    .container {
+      padding: 14px;
+    }
+
+    nav {
+      overflow-x: auto;
+    }
+
+    nav button {
+      flex: 1 0 auto;
+      padding-inline: 14px;
+    }
+
+    .collection-status__details span:last-child {
+      width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .progress-track.indeterminate .progress-fill {
+      animation: none;
+    }
+
+    .progress-fill {
+      transition: none;
+    }
   }
 </style>

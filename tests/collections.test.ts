@@ -68,6 +68,13 @@ describe('collection service', () => {
     const calls: Parameters<CollectionRunner>[0][] = []
     const runner: CollectionRunner = async (input) => {
       calls.push(input)
+      input.onProgress?.({
+        currentChannel: 'guardian',
+        currentDate: '2026-07-26',
+        channelsCompleted: 7,
+        channelsTotal: 13,
+        messages: 21,
+      })
       await mkdir(input.rawDir, { recursive: true })
       await writeFile(path.join(input.rawDir, 'marker'), 'temporary')
       return {
@@ -111,6 +118,13 @@ describe('collection service', () => {
     expect(started.job.summary).toBe(
       'category=world channels=13 messages=42 date_from=2026-07-26 date_to=2026-07-27',
     )
+    expect(started.job.progress).toEqual({
+      currentChannel: 'guardian',
+      currentDate: '2026-07-26',
+      channelsCompleted: 7,
+      channelsTotal: 13,
+      messages: 21,
+    })
     expect(started.job.result?.toString()).toBe('# Raw world\n')
     expect(started.job.error).toBeUndefined()
     expect(service.get(started.job.id)).toBe(started.job)
@@ -187,6 +201,7 @@ describe('collection service', () => {
     })
     expect(second.ok).toBe(true)
     expect(second.replacedJobIds).toEqual([first.job.id])
+    expect(service.current()).toBe(second.job)
     expect(first.job.status).toBe('cancelled')
     expect(first.job.error).toBe(
       'Cancelled by a newer collection request',

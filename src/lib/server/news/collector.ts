@@ -8,6 +8,7 @@ import {
 } from './constants'
 import { resolveNewsRuntimePaths } from './paths'
 import type {
+  CollectionProgress,
   CollectionRunner,
   CollectionRunnerInput,
   CollectionRunnerResult,
@@ -23,13 +24,30 @@ interface ProcessOutput {
   stderr: string
 }
 
+export function parseCollectorProgress(
+  line: string,
+): CollectionProgress | null {
+  const match = line.match(
+    /^progress category=\S+ date=(\d{4}-\d{2}-\d{2}) channel=(\S+) channels_completed=(\d+) channels_total=(\d+) messages=(\d+)$/,
+  )
+  if (!match) return null
+
+  return {
+    currentDate: match[1],
+    currentChannel: match[2],
+    channelsCompleted: Number(match[3]),
+    channelsTotal: Number(match[4]),
+    messages: Number(match[5]),
+  }
+}
+
 function executeCollector(
   pythonBin: string,
   collectorPath: string,
   input: CollectionRunnerInput,
 ): Promise<ProcessOutput> {
   return new Promise((resolve, reject) => {
-    execFile(
+    const child = execFile(
       pythonBin,
       [
         collectorPath,
@@ -58,6 +76,17 @@ function executeCollector(
         resolve({ stdout, stderr })
       },
     )
+
+    let progressBuffer = ''
+    child.stdout?.on('data', (chunk: Buffer | string) => {
+      progressBuffer += String(chunk)
+      const lines = progressBuffer.split('\n')
+      progressBuffer = lines.pop() || ''
+      for (const line of lines) {
+        const progress = parseCollectorProgress(line.trim())
+        if (progress) input.onProgress?.(progress)
+      }
+    })
   })
 }
 

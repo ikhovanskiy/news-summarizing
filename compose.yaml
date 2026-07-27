@@ -7,6 +7,10 @@ services:
     read_only: true
     ports:
       - "${NEWS_BIND_ADDRESS:-0.0.0.0}:${NEWS_PORT:-3001}:3001"
+    environment:
+      HTTP_PROXY: "${NEWS_HTTP_PROXY:-}"
+      HTTPS_PROXY: "${NEWS_HTTPS_PROXY:-}"
+      NO_PROXY: "${NEWS_NO_PROXY:-127.0.0.1,localhost}"
     security_opt:
       - no-new-privileges:true
     cap_drop:
