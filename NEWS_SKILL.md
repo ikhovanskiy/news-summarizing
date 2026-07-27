@@ -39,8 +39,8 @@ Markdown bodies.
 ### API contract
 
 - Digest `GET`: expect `200` with `text/markdown`. A `404` with `Digest not found` is a valid first run.
-- Collection `POST`: send `Content-Type: application/json` and body `{"dateFrom":"YYYY-MM-DD","dateTo":"YYYY-MM-DD"}`. Expect `202` and a JSON job containing `id`.
-- Job `GET`: expect JSON with `status` equal to `running`, `completed`, or `failed`; completed jobs can include `messages` and `summary`.
+- Collection `POST`: send `Content-Type: application/json` and body `{"dateFrom":"YYYY-MM-DD","dateTo":"YYYY-MM-DD"}`. Expect `202` and a JSON job containing `id` and `replacedJobIds`. The server cancels any running collection before starting this job.
+- Job `GET`: expect JSON with `status` equal to `running`, `completed`, `failed`, or `cancelled`; completed jobs can include `messages` and `summary`.
 - Result `GET`: expect `200` with the exact raw Markdown only after the job is complete.
 - Digest `PUT`: send the finished Markdown as the request body with `Content-Type: text/markdown; charset=utf-8`. Expect `200` JSON containing `category`, `bytes`, and `updatedAt`.
 
@@ -88,7 +88,11 @@ curl --silent --show-error --fail-with-body \
   "$SERVER_URL/api/digests/$CATEGORY"
 ```
 
-Stop the affected category on unexpected HTTP responses. Treat `429` from collection start as a busy server and report it. On a failed job, report the server's `error`. Poll running jobs with short waits, allow up to 30 minutes in total, and keep the user updated during long collections.
+Stop the affected category on unexpected HTTP responses. Collection start must
+not return `429`: a new request replaces any running job. On a failed or
+cancelled job, report the server's `error`. Poll running jobs with short waits,
+allow up to 30 minutes in total, and keep the user updated during long
+collections.
 
 ## Language and sources
 
@@ -132,10 +136,13 @@ Never repeat an already generated calendar day. Stop the category if the digest 
 For every selected category whose range is ready:
 
 1. Start collection with `POST /api/collections/<CATEGORY>` using the resolved inclusive range.
-2. Read `id` from the `202` response.
+2. Read `id` and `replacedJobIds` from the `202` response. If
+   `replacedJobIds` is non-empty, report that the stale collection was stopped
+   and continue with the new job.
 3. Poll `GET /api/collection-jobs/<JOB_ID>` until:
    - `completed`: record `messages` and `summary`, then continue;
    - `failed`: stop and report `error`;
+   - `cancelled`: stop and report `error`;
    - 30 minutes elapse: stop and report a timeout.
 4. Download `GET /api/collection-jobs/<JOB_ID>/result`. Save the exact non-empty response to `/tmp/news-raw/<CATEGORY>.md`.
 5. Read the matching prompt template and the raw result. Produce the report in English, following the template's structure exactly. Use `YYYY-MM-DD` in the date field for one day or `YYYY-MM-DD — YYYY-MM-DD` for a multi-day range.

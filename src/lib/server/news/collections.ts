@@ -2,10 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { rm } from 'node:fs/promises'
 import path from 'node:path'
 
-import {
-  MAX_ACTIVE_COLLECTIONS,
-  MAX_RETAINED_COLLECTIONS,
-} from './constants'
+import { MAX_RETAINED_COLLECTIONS } from './constants'
 import { defaultCollectionRunner } from './collector'
 import { resolveNewsRuntimePaths } from './paths'
 import type {
@@ -82,12 +79,17 @@ export async function executeCollectionJob(
   collectionRunner: CollectionRunner,
 ): Promise<void> {
   try {
+    const signal =
+      job.abortController?.signal ?? new AbortController().signal
     const result = await collectionRunner({
       category: job.category,
       dateFrom: job.dateFrom,
       dateTo: job.dateTo,
       rawDir: job.rawDir,
+      signal,
     })
+    if (job.status === 'cancelled' || signal.aborted) return
+
     const body = Buffer.isBuffer(result.body)
       ? result.body
       : Buffer.from(result.body || '')
@@ -105,10 +107,13 @@ export async function executeCollectionJob(
     job.summary = summary
     job.status = 'completed'
   } catch (error) {
-    job.error = errorDetails(error) || 'Collection failed'
-    job.status = 'failed'
+    if (job.status !== 'cancelled') {
+      job.error = errorDetails(error) || 'Collection failed'
+      job.status = 'failed'
+    }
   } finally {
-    job.finishedAt = new Date().toISOString()
+    job.finishedAt ??= new Date().toISOString()
+    job.abortController = undefined
     await rm(job.rawDir, { recursive: true, force: true }).catch((error) => {
       console.error('Could not remove collection temporary directory', error)
     })
@@ -131,15 +136,20 @@ export function createCollectionService(
       return jobs.get(id)
     },
     start(input) {
-      const activeCount = [...jobs.values()].filter(
-        (job) => job.status === 'running',
-      ).length
-      if (activeCount >= MAX_ACTIVE_COLLECTIONS) {
-        return { ok: false, reason: 'busy' }
+      const replacedJobIds: string[] = []
+      for (const activeJob of jobs.values()) {
+        if (activeJob.status !== 'running') continue
+
+        activeJob.status = 'cancelled'
+        activeJob.error = 'Cancelled by a newer collection request'
+        activeJob.finishedAt = new Date().toISOString()
+        activeJob.abortController?.abort()
+        replacedJobIds.push(activeJob.id)
       }
 
       pruneCollectionJobs(jobs)
       const id = randomUUID()
+      const abortController = new AbortController()
       const job: CollectionJob = {
         id,
         category: input.category,
@@ -148,11 +158,12 @@ export function createCollectionService(
         status: 'running',
         createdAt: new Date().toISOString(),
         rawDir: path.join(collectionTempRoot, id),
+        abortController,
       }
       jobs.set(id, job)
       void executeCollectionJob(job, collectionRunner)
 
-      return { ok: true, job }
+      return { ok: true, job, replacedJobIds }
     },
   }
 }

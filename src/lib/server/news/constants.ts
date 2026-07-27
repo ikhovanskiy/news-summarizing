@@ -3,7 +3,6 @@ export const CATEGORIES = ['world', 'crypto', 'invest'] as const
 export type Category = (typeof CATEGORIES)[number]
 
 export const MAX_DIGEST_BYTES = 2 * 1024 * 1024
-export const MAX_ACTIVE_COLLECTIONS = 1
 export const MAX_RETAINED_COLLECTIONS = 20
 export const COLLECTION_TIMEOUT_MS = 30 * 60 * 1000
 export const COLLECTION_MAX_BUFFER_BYTES = 4 * 1024 * 1024

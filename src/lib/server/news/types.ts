@@ -1,12 +1,17 @@
 import type { Category } from './constants'
 
-export type CollectionJobStatus = 'running' | 'completed' | 'failed'
+export type CollectionJobStatus =
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
 
 export interface CollectionRunnerInput {
   category: Category
   dateFrom: string
   dateTo: string
   rawDir: string
+  signal: AbortSignal
 }
 
 export interface CollectionRunnerResult {
@@ -32,6 +37,7 @@ export interface CollectionJob {
   summary?: string | null
   error?: string | null
   result?: Buffer
+  abortController?: AbortController
 }
 
 export interface PublicCollectionJob {
@@ -53,6 +59,8 @@ export interface StartCollectionInput {
   dateTo: string
 }
 
-export type StartCollectionResult =
-  | { ok: true; job: CollectionJob }
-  | { ok: false; reason: 'busy' }
+export interface StartCollectionResult {
+  ok: true
+  job: CollectionJob
+  replacedJobIds: string[]
+}

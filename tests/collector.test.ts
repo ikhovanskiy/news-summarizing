@@ -46,6 +46,7 @@ describe('collector process runner', () => {
         dateFrom: '2026-07-26',
         dateTo: '2026-07-27',
         rawDir,
+        signal: new AbortController().signal,
       },
       {
         collectorPath,

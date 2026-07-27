@@ -43,14 +43,14 @@ export const POST: RequestHandler = async ({ params, request }) => {
     dateFrom,
     dateTo,
   })
-  if (!started.ok) {
-    return jsonResponse(
-      { error: 'Another collection is already running' },
-      429,
-    )
-  }
 
-  return jsonResponse(publicCollectionJob(started.job), 202)
+  return jsonResponse(
+    {
+      ...publicCollectionJob(started.job),
+      replacedJobIds: started.replacedJobIds,
+    },
+    202,
+  )
 }
 
 export const fallback: RequestHandler = ({ params }) =>

@@ -46,6 +46,7 @@ function executeCollector(
         encoding: 'utf8',
         env: { ...process.env, NEWS_RAW_DIR: input.rawDir },
         maxBuffer: COLLECTION_MAX_BUFFER_BYTES,
+        signal: input.signal,
         timeout: COLLECTION_TIMEOUT_MS,
       },
       (error, stdout, stderr) => {

@@ -100,12 +100,13 @@ describe('collection service', () => {
     )
 
     expect(calls).toHaveLength(1)
-    expect(calls[0]).toEqual({
+    expect(calls[0]).toMatchObject({
       category: 'world',
       dateFrom: '2026-07-26',
       dateTo: '2026-07-27',
       rawDir: started.job.rawDir,
     })
+    expect(calls[0]?.signal).toBeInstanceOf(AbortSignal)
     expect(started.job.messages).toBe(42)
     expect(started.job.summary).toBe(
       'category=world channels=13 messages=42 date_from=2026-07-26 date_to=2026-07-27',
@@ -149,14 +150,22 @@ describe('collection service', () => {
     expect(started.job.result).toBeUndefined()
   })
 
-  test('rejects a second start while another collection is running', async () => {
-    let releaseRunner: (() => void) | undefined
-    const blocker = new Promise<void>((resolve) => {
-      releaseRunner = resolve
-    })
-    const runner: CollectionRunner = async () => {
-      await blocker
-      return { body: '# Completed after release\n' }
+  test('cancels a running collection before starting a newer one', async () => {
+    let observedAbort = false
+    const runner: CollectionRunner = async (input) => {
+      if (input.category === 'invest') {
+        await new Promise<void>((_resolve, reject) => {
+          input.signal.addEventListener(
+            'abort',
+            () => {
+              observedAbort = true
+              reject(new Error('collector aborted'))
+            },
+            { once: true },
+          )
+        })
+      }
+      return { body: '# Completed replacement\n' }
     }
     const service = createCollectionService({
       collectionRunner: runner,
@@ -169,20 +178,27 @@ describe('collection service', () => {
       dateTo: '2026-07-27',
     })
     expect(first.ok).toBe(true)
+    if (!first.ok) throw new Error('Expected first collection to start')
 
     const second = service.start({
       category: 'world',
       dateFrom: '2026-07-27',
       dateTo: '2026-07-27',
     })
-    expect(second).toEqual({ ok: false, reason: 'busy' })
-    expect(service.jobs.size).toBe(1)
+    expect(second.ok).toBe(true)
+    expect(second.replacedJobIds).toEqual([first.job.id])
+    expect(first.job.status).toBe('cancelled')
+    expect(first.job.error).toBe(
+      'Cancelled by a newer collection request',
+    )
+    expect(service.jobs.size).toBe(2)
 
-    releaseRunner?.()
-    if (!first.ok) throw new Error('Expected first collection to start')
     await waitFor(
-      () => first.job.status === 'completed',
-      'blocked job completion',
+      () =>
+        observedAbort &&
+        first.job.status === 'cancelled' &&
+        second.job.status === 'completed',
+      'cancelled job and completed replacement',
     )
   })
 

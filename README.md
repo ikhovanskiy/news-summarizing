@@ -20,7 +20,8 @@ process or environment variables are needed.
 
 - `GET /api/digests/:category` returns the latest Markdown digest.
 - `PUT /api/digests/:category` publishes a Markdown digest.
-- `POST /api/collections/:category` starts `collect.py` on the server.
+- `POST /api/collections/:category` cancels any running collector and starts a
+  new `collect.py` job on the server.
 - `GET /api/collection-jobs/:id` returns collection status.
 - `GET /api/collection-jobs/:id/result` returns completed raw Markdown.
 - `GET /healthz` is a health check.
