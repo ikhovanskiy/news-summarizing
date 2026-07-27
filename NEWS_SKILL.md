@@ -13,7 +13,13 @@ Use the server HTTP routes for every remote operation. Do not run local collecti
 
 ## Server API
 
-Resolve `<SERVER_URL>` from `NEWS_SERVER_URL`; otherwise use `http://127.0.0.1:5174`. Remove a trailing slash before appending a route.
+Before making any API request, ask the user for the news server URL and wait for
+their response. Do this for every invocation, even when `NEWS_SERVER_URL` is set
+or the local server appears to be available. Do not start a local server or
+silently fall back to `http://127.0.0.1:5174`.
+
+Use the URL provided by the user as `<SERVER_URL>`. Remove a trailing slash
+before appending a route.
 
 Valid categories are `world`, `crypto`, and `invest`.
 
