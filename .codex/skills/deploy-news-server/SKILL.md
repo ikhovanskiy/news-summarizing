@@ -59,7 +59,7 @@ local `data`, copy credentials, prune Docker state, or delete old releases. If
 Docker is absent or inaccessible, report the exact preflight failure and ask
 the user how to proceed.
 
-The app is exposed on `http://<host>:3000` by default. Select a different
+The app is exposed on `http://<host>:3001` by default. Select a different
 `http-port` when that port is occupied; do not stop or replace an unrelated
 service. Its write and collection routes are unauthenticated; state this
 clearly in the handoff and recommend a firewall or authenticated reverse proxy
@@ -69,7 +69,8 @@ before public exposure.
 
 After the script succeeds:
 
-1. Check `http://<host>:3000/healthz` from the local machine when reachable.
+1. Check `http://<host>:<http-port>/healthz` from the local machine when
+   reachable.
 2. Report the destination, release ID, container health, URL, and persistent
    volume.
 3. If the external check fails but remote container health is good, distinguish

@@ -12,7 +12,7 @@ fi
 
 destination=$1
 ssh_port=${2:-22}
-http_port=${3:-3000}
+http_port=${3:-3001}
 
 if [[ -z "$destination" || "$destination" == -* || "$destination" =~ [[:space:]] ]]; then
   printf 'Invalid SSH destination: %q\n' "$destination" >&2

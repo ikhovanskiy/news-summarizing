@@ -6,7 +6,7 @@ services:
     init: true
     read_only: true
     ports:
-      - "${NEWS_BIND_ADDRESS:-0.0.0.0}:${NEWS_PORT:-3000}:3000"
+      - "${NEWS_BIND_ADDRESS:-0.0.0.0}:${NEWS_PORT:-3001}:3001"
     security_opt:
       - no-new-privileges:true
     cap_drop:

@@ -65,7 +65,7 @@ Or deploy with Docker:
 docker compose up -d --build
 ```
 
-The Docker deployment listens on port `3000`, stores digests in the persistent
+The Docker deployment listens on port `3001`, stores digests in the persistent
 `news-data` volume, and runs collection in the `Europe/Moscow` timezone.
 Override the public bind address or port with `NEWS_BIND_ADDRESS` and
 `NEWS_PORT`.
