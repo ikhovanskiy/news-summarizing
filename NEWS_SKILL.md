@@ -9,7 +9,10 @@ description: Create English-language Telegram-based world, crypto, and investmen
 
 Produce professional English-language `world`, `crypto`, and `invest` digests from Telegram messages collected by the news server.
 
-Use the server HTTP routes for every remote operation. Do not run local collection, synchronization, or date-range scripts. Do not collect Telegram messages manually through MCP, MTProto, scraping, or web search.
+Use the server HTTP routes for every news-data operation. Fetch prompt templates
+only from the GitHub location specified below. Do not run local collection,
+synchronization, or date-range scripts. Do not collect Telegram messages
+manually through MCP, MTProto, scraping, or web search.
 
 ## Server API
 
@@ -103,7 +106,18 @@ collections.
 
 Return all user-facing text and every saved digest in English. Translate source material and all required headings, labels, table headers, placeholders, and disclaimers into natural English.
 
-Read `/Users/i-khovanskiy/home/news/prompts/<CATEGORY>.md` for the authoritative content requirements, section order, tables, and analytical constraints. The English-language rule in this skill overrides the templates' Russian-language instruction.
+For every selected category, download the current authoritative prompt template
+from:
+
+`https://raw.githubusercontent.com/ikhovanskiy/news-summarizing/main/prompts/<CATEGORY>.md`
+
+Use `curl --fail --location --silent --show-error` with
+`Cache-Control: no-cache`, save it to `/tmp/news-prompts/<CATEGORY>.md`, and
+require a non-empty response. Stop the affected category if the download fails.
+Do not use a local prompt copy or a prompt retained from an earlier invocation.
+Follow the downloaded template's content requirements, section order, tables,
+and analytical constraints. The English-language rule in this skill overrides
+the templates' Russian-language instruction.
 
 Use only `/tmp/news-raw/<CATEGORY>.md` as factual source data for analysis. Do not invent facts absent from the raw result.
 
@@ -150,7 +164,10 @@ For every selected category whose range is ready:
    - `cancelled`: stop and report `error`;
    - 30 minutes elapse: stop and report a timeout.
 4. Download `GET /api/collection-jobs/<JOB_ID>/result`. Save the exact non-empty response to `/tmp/news-raw/<CATEGORY>.md`.
-5. Read the matching prompt template and the raw result. Produce the report in English, following the template's structure exactly. Use `YYYY-MM-DD` in the date field for one day or `YYYY-MM-DD — YYYY-MM-DD` for a multi-day range.
+5. Download the matching prompt template from the GitHub URL above, then read
+   the complete downloaded template and the raw result. Produce the report in
+   English, following the template's structure exactly. Use `YYYY-MM-DD` in the
+   date field for one day or `YYYY-MM-DD — YYYY-MM-DD` for a multi-day range.
 6. Save identical report content to:
    - `world`: `/tmp/world-news.md` and `/tmp/world.md`
    - `crypto`: `/tmp/crypto-news.md` and `/tmp/crypto.md`
