@@ -16,9 +16,6 @@ Open <http://127.0.0.1:5174>. That single command starts the UI, digest API, and
 collection API. `collect.py` starts automatically on demand; no second server
 process or environment variables are needed.
 
-The `/news` helper also defaults to `http://127.0.0.1:5174`. Set
-`NEWS_SERVER_URL` only when it should use a deployed server instead.
-
 ## API
 
 - `GET /api/digests/:category` returns the latest Markdown digest.
@@ -34,23 +31,30 @@ in `./data`. Collection jobs are asynchronous, and one job can run at a time.
 The write and collection routes intentionally have no authentication. Anyone
 who can reach them can overwrite a digest or start a collection.
 
-## `/news` helper
+## `/news` workflow
 
-The helper pulls the previous digest, requests collection on the same SvelteKit
-server, downloads the raw result for analysis, and publishes the finished
-digest:
+The `/news` skill talks directly to the SvelteKit server over HTTP. For example:
 
 ```bash
-python3 digest_server.py pull world
-python3 digest_server.py collect world --date-from 2026-07-26 --date-to 2026-07-26
-python3 digest_server.py push world
+SERVER_URL='http://news.example:3001'
+
+curl --silent --show-error \
+  "$SERVER_URL/api/digests/world"
+
+curl --silent --show-error --fail-with-body \
+  --request POST \
+  --header 'Content-Type: application/json' \
+  --data '{"dateFrom":"2026-07-26","dateTo":"2026-07-26"}' \
+  "$SERVER_URL/api/collections/world"
+
+curl --silent --show-error --fail-with-body \
+  --request PUT \
+  --header 'Content-Type: text/markdown; charset=utf-8' \
+  --data-binary '@/tmp/world-news.md' \
+  "$SERVER_URL/api/digests/world"
 ```
 
-For production, configure only the server URL:
-
-```bash
-export NEWS_SERVER_URL="https://news.example.com"
-```
+The skill asks for the server URL on every invocation.
 
 ## Production
 

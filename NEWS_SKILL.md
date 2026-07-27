@@ -32,7 +32,9 @@ Valid categories are `world`, `crypto`, and `invest`.
 | Publish a digest | `PUT <SERVER_URL>/api/digests/<CATEGORY>` |
 | Check server health | `GET <SERVER_URL>/healthz` |
 
-Use an HTTP-capable tool or `curl` to call these routes directly. Require the expected HTTP status and reject empty Markdown bodies.
+Use `curl` directly for every API request. Do not run `digest_server.py` or any
+other local API wrapper. Require the expected HTTP status and reject empty
+Markdown bodies.
 
 ### API contract
 
@@ -41,6 +43,50 @@ Use an HTTP-capable tool or `curl` to call these routes directly. Require the ex
 - Job `GET`: expect JSON with `status` equal to `running`, `completed`, or `failed`; completed jobs can include `messages` and `summary`.
 - Result `GET`: expect `200` with the exact raw Markdown only after the job is complete.
 - Digest `PUT`: send the finished Markdown as the request body with `Content-Type: text/markdown; charset=utf-8`. Expect `200` JSON containing `category`, `bytes`, and `updatedAt`.
+
+### `curl` examples
+
+Replace the example URL with the server URL supplied by the user:
+
+```bash
+SERVER_URL='http://news.example:3001'
+CATEGORY='world'
+
+# Health check
+curl --silent --show-error --include \
+  "$SERVER_URL/healthz"
+
+# Read the latest digest and print the HTTP status separately
+curl --silent --show-error \
+  --header 'Accept: text/markdown' \
+  --output "/tmp/$CATEGORY-server-response.md" \
+  --write-out '%{http_code}\n' \
+  "$SERVER_URL/api/digests/$CATEGORY"
+
+# Start collection
+curl --silent --show-error --fail-with-body \
+  --request POST \
+  --header 'Content-Type: application/json' \
+  --data '{"dateFrom":"2026-07-26","dateTo":"2026-07-26"}' \
+  "$SERVER_URL/api/collections/$CATEGORY"
+
+# Poll a job; replace JOB_ID with the id returned by the previous request
+curl --silent --show-error --fail-with-body \
+  "$SERVER_URL/api/collection-jobs/JOB_ID"
+
+# Download the completed raw result
+curl --silent --show-error --fail-with-body \
+  --header 'Accept: text/markdown' \
+  --output "/tmp/news-raw/$CATEGORY.md" \
+  "$SERVER_URL/api/collection-jobs/JOB_ID/result"
+
+# Publish the finished digest
+curl --silent --show-error --fail-with-body \
+  --request PUT \
+  --header 'Content-Type: text/markdown; charset=utf-8' \
+  --data-binary "@/tmp/$CATEGORY-news.md" \
+  "$SERVER_URL/api/digests/$CATEGORY"
+```
 
 Stop the affected category on unexpected HTTP responses. Treat `429` from collection start as a busy server and report it. On a failed job, report the server's `error`. Poll running jobs with short waits, allow up to 30 minutes in total, and keep the user updated during long collections.
 
